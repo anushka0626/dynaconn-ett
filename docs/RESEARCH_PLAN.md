@@ -101,6 +101,14 @@ Commit it; the git timestamp is the registration date. Optionally also deposit i
 
 **Exit criteria:** `RELATED_WORK.md` and `PREREGISTRATION.md` are committed. The contributions list in the intro draft names at least one thing none of the three papers measure.
 
+**Status: ✅ content complete 2026-10-17**, waiting for the author's commit, which is the registration.
+- **3.1:** `RELATED_WORK.md` is finalized. Its stance column is aligned with the pre-registration, and it has a draft contributions list naming five things none of the three papers measure.
+- **3.2:** `IMPLEMENTATION_NOTES.md` covers D-tree, ID-tree/DND-trees and HDT, with our resolutions of the papers' ambiguities. Open items:
+  - HKS's exact sampling rule (read Alberts et al. 1997 and Henzinger–King 1999 before implementing HKS);
+  - D-tree's centroid-fix choice and DND's root re-synchronization, both to be cross-checked against the reference code.
+- **3.3:** `PREREGISTRATION.md` is complete: 18 confirmatory tests (T1–T18) plus the criterion-based H4.
+- **Design consequence (applies to Phase 5):** every iterated neighbor or child set uses one canonical **swap-remove order** in all layouts, so the P0 and F2 variants of each algorithm behave identically (`IMPLEMENTATION_NOTES.md`).
+
 ---
 
 ## Phase 4: Correctness & measurement foundation
@@ -141,6 +149,19 @@ Commit it; the git timestamp is the registration date. Optionally also deposit i
 - Add **target-density control**.
 
 **Exit criteria:** `ctest` passes under ASan+UBSan, under invariant checks, and with both compilers. All memory numbers are measured.
+
+**Status: ✅ done 2026-10-16.**
+- **Code:** `EulerTourForest<Storage>` with `PointerStorage` / `ArenaStorage`; the forest-only ETTs are deleted.
+- **Tests:** 39 ctest cases pass under GCC 16 and Clang 22, each plain and with ASan+UBSan (`scripts/check.sh`). They include the shape-identity test, invariants after every op, and the differential fuzz (V ∈ {2, 8, 30, 200, 2000} × 5 mixes × 100 seeds).
+- **Test strength:** checked by planting three bugs (replacement search disabled, a missing parent link, asymmetric adjacency); all three were caught.
+- **Generator:** portable SplitMix64 + Lemire sampling. Its stream is pinned by a golden hash that matches across both compilers.
+- **Memory:** measured by `memory_profile` (tagged allocators, global hooks, mallinfo2 cross-check).
+
+**Deviations from the text above:**
+- The invariant checker is a method (`check_invariants()`) that tests call, not a `DC_CHECK_INVARIANTS` build flag. That way release code doesn't change.
+- The replacement search now collects vertices in treap preorder into a reused vector, where it used to build an `unordered_set`. The answers are identical, but which replacement edge gets picked can differ from the Phase 2 code. No results depend on Phase 2.
+
+**First measurement worth keeping** (V = 20k, E = 80k, insert-only): treap nodes are ≈ 23% of the ETT's bytes, non-tree adjacency ≈ 57%, the edge map ≈ 20%. P0 → F0 saves only ≈ 3% of total memory. This supports the ablation design, since the bookkeeping steps (F1, F2) should matter more than node layout.
 
 ---
 
@@ -192,6 +213,20 @@ HDT is still the largest item. If time runs short, the ETT and D-tree layout com
 These feed the cost model (RQ4).
 
 **Exit criteria:** every structure and variant passes the Phase 4 fuzz suite, and outputs agree with the reference implementations on shared small inputs.
+
+**Status: in progress (2026-10-17).** 45 ctest cases pass under GCC and Clang, each plain and with ASan+UBSan.
+
+| Item | State |
+|---|---|
+| 5.1 Baselines | ✅ BFS (epoch-stamped visits, flat adjacency), eager and lazy DSU, CachedBFS |
+| 5.2 D-tree | ✅ P0 and F2, with a behavior-identity test. Follows the authors' code where it differs from the paper; the Alg. 2 query is fixed (see `IMPLEMENTATION_NOTES.md`) |
+| 5.2 DND-trees (Xu et al.) | ✅ F2. The DS-root re-sync is shown necessary |
+| 5.2 HKS | ⏳ first read Alberts et al. 1997 for the sampling rule |
+| 5.2 HDT | ⏳ largest item; also check against `tomtseng/dynamic-connectivity-hdt` |
+| 5.3 ETT P0 → F0 → F1 → F2 | ✅ identical treaps after every op (tested). Shared containers: `FlatHashMap`, `Std/FlatOrderedSets` (canonical swap-remove order) |
+| 5.3 F3 compaction | optional tier |
+| 5.4 k-hop (k = 1, 2, 3) | ✅ `EttF2KHop<k>`. Mutation-tested; one surviving mutant was equivalent and the redundant check was removed |
+| 5.5 `DC_STATS` counters | ✅ consistent, and identical across layouts (tested) |
 
 ---
 
