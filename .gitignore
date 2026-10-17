@@ -4,3 +4,8 @@ bin/
 *.a
 .vscode/
 .idea/
+.venv/
+data/
+results/raw/
+__pycache__/
+build-*/

@@ -27,7 +27,12 @@ This repository investigates **Euler Tour Trees (ETT)** backed by implicit rando
 
 ### Build & Run
 ```bash
-mkdir -p build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-cmake --build .
-./benchmark_runner
+cmake -S . -B build -G Ninja              # RelWithChecks: -O3 with asserts
+cmake --build build
+ctest --test-dir build -j"$(nproc)"       # correctness suite
+scripts/check.sh                          # GCC + Clang, with and without ASan/UBSan
+
+cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DDC_BUILD_TESTS=OFF
+cmake --build build-release
+./build-release/memory_profile 500 2000   # measured memory footprint per structure
+```
