@@ -23,8 +23,13 @@ for cfg in "${configs[@]}"; do
     dir="$root/build-check/$cfg"
     echo "=== $cfg ($cxx, sanitizers $sanitize)"
     cmake -S "$root" -B "$dir" -G Ninja -DCMAKE_CXX_COMPILER="$cxx" \
-        -DCMAKE_BUILD_TYPE=RelWithChecks -DDC_SANITIZE="$sanitize" > /dev/null
-    cmake --build "$dir" > /dev/null
+        -DCMAKE_BUILD_TYPE=RelWithChecks -DDC_SANITIZE="$sanitize" -DDC_WERROR=ON > /dev/null
+    if ! cmake --build "$dir" > "$dir/build.log" 2>&1; then  # -Werror: any warning fails the build
+        echo "build failed (see $dir/build.log):"
+        grep -E "error|warning" "$dir/build.log" | head -20
+        failed+=("$cfg")
+        continue
+    fi
     # Sanitizer builds look for memory errors, not logic errors, so they run fewer fuzz seeds
     # (the plain builds run the full 100).
     seeds=100

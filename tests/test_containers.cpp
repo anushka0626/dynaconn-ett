@@ -19,7 +19,9 @@ void hash_map_matches_reference(uint64_t seed, uint64_t key_range, int ops) {
     dc::FlatHashMap<uint32_t, MemCategory::Scratch> map;
     std::unordered_map<uint64_t, uint32_t> ref;
     for (int i = 0; i < ops; ++i) {
-        uint64_t key = dc::edge_key(static_cast<int32_t>(rng.below(key_range)), static_cast<int32_t>(rng.below(key_range)));
+        auto ka = static_cast<int32_t>(rng.below(key_range));  // sequenced: same keys on every compiler
+        auto kb = static_cast<int32_t>(rng.below(key_range));
+        uint64_t key = dc::edge_key(ka, kb);
         uint64_t action = rng.below(3);
         if (action == 0) {
             auto value = static_cast<uint32_t>(rng.next());

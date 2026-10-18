@@ -13,7 +13,6 @@
 //   this matters for local queries, P3 in the pre-registration);
 // - adjacency is the shared flat layout, and the BFS queue is a reused vector.
 class BaselineBFS : public DynamicConnectivity {
-    int n;
     dc::FlatOrderedSets<dc::MemCategory::Adjacency> adj;
     size_t edges = 0;
     std::vector<uint32_t, dc::Alloc<uint32_t, dc::MemCategory::Scratch>> visit_stamp;
@@ -21,7 +20,7 @@ class BaselineBFS : public DynamicConnectivity {
     uint32_t epoch = 0;
 
 public:
-    explicit BaselineBFS(int vertices) : n(vertices), adj(vertices), visit_stamp(vertices, 0) {}
+    explicit BaselineBFS(int vertices) : adj(vertices), visit_stamp(vertices, 0) {}
 
     void insert_edge(int u, int v) override {
         if (u == v) return;

@@ -21,10 +21,16 @@ endif()
 set(DC_MARCH "native" CACHE STRING "Value passed to -march")
 option(DC_SANITIZE "Build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
 option(DC_BUILD_TESTS "Build the test suite" ON)
+option(DC_WERROR "Treat warnings as errors (scripts/check.sh turns this on)" OFF)
 
 add_library(dynconn INTERFACE)
 target_include_directories(dynconn INTERFACE include)
-target_compile_options(dynconn INTERFACE -march=${DC_MARCH} -Wall -Wextra -Wpedantic)
+# -ffp-contract=off: no FMA contraction, so floating-point workload generation (RGG, LEO) is
+# bit-identical across compilers.
+target_compile_options(dynconn INTERFACE -march=${DC_MARCH} -ffp-contract=off -Wall -Wextra -Wpedantic)
+if(DC_WERROR)
+    target_compile_options(dynconn INTERFACE -Werror)
+endif()
 if(DC_SANITIZE)
     target_compile_options(dynconn INTERFACE -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
     target_link_options(dynconn INTERFACE -fsanitize=address,undefined)
@@ -33,6 +39,10 @@ endif()
 # Phase 2 driver: parity check + measured memory footprint (global allocation hooks only).
 add_executable(benchmark_runner src/main.cpp)
 target_link_libraries(benchmark_runner PRIVATE dynconn)
+
+# Workload trace generator (Phase 6).
+add_executable(tracegen src/tracegen.cpp)
+target_link_libraries(tracegen PRIVATE dynconn)
 
 # Memory accounting changes container allocator types, so it is enabled per executable.
 add_executable(memory_profile src/memory_profile.cpp)
@@ -47,7 +57,8 @@ if(DC_BUILD_TESTS)
         tests/test_edge_cases.cpp
         tests/test_fuzz.cpp
         tests/test_generator.cpp
-        tests/test_containers.cpp)
+        tests/test_containers.cpp
+        tests/test_trace.cpp)
     target_link_libraries(dc_tests PRIVATE dynconn)
     target_include_directories(dc_tests PRIVATE tests)
 
@@ -65,6 +76,9 @@ if(DC_BUILD_TESTS)
             edge_cases_baselines edge_cases_ett_layouts edge_cases_ett_khop edge_cases_dtree edge_cases_dnd edge_cases_hks edge_cases_hdt
             invariants_every_op layout_shape_identity dtree_layout_identity hks_layout_identity hdt_layout_identity
             flat_hash_map_matches_reference ordered_sets_identical_order
+            sha256_nist_vectors trace_roundtrip_and_validation graph_builders churn_trace_semantics
+            local_queries_within_two_hops query_kinds_share_update_stream rgg_churn_uses_potential_edges
+            ur_trace_structure window_and_adversarial_traces trace_golden_hashes leo_trace_semantics dataset_loaders
             rng_bounded_is_in_range_and_unbiased generator_exact_op_count_and_semantics
             generator_deterministic generator_golden_hash generator_density_control generator_tiny_graphs)
         add_test(NAME ${name} COMMAND dc_tests ${name})

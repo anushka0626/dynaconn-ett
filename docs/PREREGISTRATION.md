@@ -323,4 +323,25 @@ Correctness is a precondition (the differential tests must pass), not an outcome
 
 ## 6. Amendments
 
-*None yet. After registration, every change is a dated entry here: what changed, why, and whether any confirmatory data had been seen at the time.*
+*After registration, every change is a dated entry here: what changed, why, and whether any confirmatory data had been seen at the time.*
+
+### A1 (2026-10-18): RGG churn definition (§2.9)
+- **Problem:** as written, the initial RGG graph contains *every* potential edge. Steady-state density control then forces an insert after each delete, and the only absent potential edge is the one just deleted. The "churn" would re-insert the same edge forever.
+- **Change:** potential edges are the pairs within distance r', with r' chosen so the potential graph's expected degree is **2d**. The initial graph is a uniform random subset of exactly ⌊d·V/2⌉ potential edges (expected degree d, as stated). Churn then inserts uniform absent potential edges, as stated.
+- **Effect on RQ5:** the initial RGG's clustering coefficient is about half that of a full RGG (≈ 0.29 instead of ≈ 0.59, since keeping each edge with probability ½ keeps a triangle with probability ⅛ and a two-path with probability ¼). ER at the same density stays ≈ 0. H5a, H5b and their thresholds are unchanged.
+- **Data seen:** none. No workload had been generated and nothing had been measured.
+
+### A2 (2026-10-18): u_r workload details for RQ3b (§2.9, §3 RQ3b)
+- **Change:**
+  - **Insertion order** follows SIGMOD 2025's generator (`Imp_bench_dyn/utils/graph_generators.py`, read 2026-10-18): edges in the order their dataset files list them. That is generation order for G(n, m), and **sequential order (0–1, 1–2, …) for the path graph**. This replaces "uniformly random order".
+  - **ER density:** m = 10·V (their `generate_random_graph(m // 10, m)`, average degree 20). For B2 at V = 10⁵ that is m = 10⁶; the path graph for B1 at V = 10⁵ has m = V − 1.
+  - **Deletes** pick a uniform present edge after every u_r inserts, as before.
+  - **Checkpoint query protocol** (exploratory, for comparability only): 100 evenly spaced testing points, each with 10,000 uniform queries, updates suspended. They used 50 M queries per point, which is not feasible here; the count is stated in the paper.
+- **Reason:** replication fidelity. B1 concerns the path graph, where insertion order shapes every structure's trees. §3 RQ3b already says the ER density "follows their generator … recorded as an amendment".
+- **Data seen:** none.
+
+### A3 (2026-10-18): Clarifications to the query definitions (§2.9; no change in meaning)
+- **Local (h = 2):** u is drawn by rejection among vertices with degree ≥ 1, up to 64 draws; then the query becomes a uniform fallback, which is counted.
+- **Cross-component:** v is drawn by rejection (uniform among vertices outside u's component) with at most 4,096 draws per u, and u is redrawn up to 64 times; then a uniform fallback, counted.
+- **Ground truth:** every query's answer is computed during generation by two independent structures (DND-trees and EttF2), which must agree, and stored in the trace.
+- **Data seen:** none.
