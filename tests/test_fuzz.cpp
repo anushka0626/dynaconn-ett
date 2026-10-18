@@ -5,6 +5,8 @@
 #include "DNDTree.hpp"
 #include "DTree.hpp"
 #include "DynamicGraphETT.hpp"
+#include "HDT.hpp"
+#include "HKS.hpp"
 #include "Oracle.hpp"
 #include "TestFramework.hpp"
 #include <cstdlib>
@@ -76,7 +78,8 @@ struct Named {
 using AllStructures = std::tuple<Named<BaselineBFS>, Named<BaselineDSU>, Named<LazyDSU>, Named<CachedBFS>,
                                  Named<EttP0>, Named<EttF0>, Named<EttF1>, Named<EttF2>,
                                  Named<EttF2KHop<1>>, Named<EttF2KHop<2>>, Named<EttF2KHop<3>>,
-                                 Named<DTreeP0>, Named<DTreeF2>, Named<DNDTree>>;
+                                 Named<DTreeP0>, Named<DTreeF2>, Named<DNDTree>, Named<HksP0>, Named<HksF2>,
+                                 Named<HdtP0>, Named<HdtF2>>;
 
 template <class T>
 constexpr bool has_invariants = requires(T& t) { t.check_invariants(); };
@@ -91,7 +94,8 @@ struct Structures {
               NameAndSize{"cached_bfs", n}, NameAndSize{"ett_p0", n}, NameAndSize{"ett_f0", n},
               NameAndSize{"ett_f1", n}, NameAndSize{"ett_f2", n}, NameAndSize{"ett_f2_k1", n},
               NameAndSize{"ett_f2_k2", n}, NameAndSize{"ett_f2_k3", n}, NameAndSize{"dtree_p0", n},
-              NameAndSize{"dtree_f2", n}, NameAndSize{"dnd", n}) {}
+              NameAndSize{"dtree_f2", n}, NameAndSize{"dnd", n}, NameAndSize{"hks_p0", n},
+              NameAndSize{"hks_f2", n}, NameAndSize{"hdt_p0", n}, NameAndSize{"hdt_f2", n}) {}
 
     template <class F>
     void each(F&& f) {
@@ -177,7 +181,7 @@ void run_invariants_every_op(int n, int seeds) {
     for (const Mix& mix : kMixes) {
         for (int seed = 1; seed <= seeds; ++seed) {
             Workload w = generate_churn_workload(make_config(n, mix, 1000 + seed, 800));
-            EttSet<EttP0, EttF2, EttF2KHop<2>, DTreeP0, DTreeF2, DNDTree> set(n);
+            EttSet<EttP0, EttF2, EttF2KHop<2>, DTreeP0, DTreeF2, DNDTree, HksP0, HksF2, HdtP0, HdtF2> set(n);
             for (size_t i = 0; i < w.ops.size(); ++i) {
                 if (w.ops[i].type == OpType::QUERY) continue;
                 set.apply(w.ops[i]);
@@ -254,6 +258,51 @@ void run_dtree_identity(int n, int seeds) {
             }
         }
     }
+}
+
+// HKS P0 and F2 must build identical treaps, including the random sampling (seeded stream).
+void run_hks_identity(int n, int seeds) {
+    for (const Mix& mix : kMixes) {
+        for (int seed = 1; seed <= seeds; ++seed) {
+            Workload w = generate_churn_workload(make_config(n, mix, 4000 + seed, 800));
+            EttSet<HksP0, HksF2> set(n);
+            for (size_t i = 0; i < w.ops.size(); ++i) {
+                if (w.ops[i].type == OpType::QUERY) continue;
+                set.apply(w.ops[i]);
+                auto& [p, f] = set.impls;
+                CHECK_MSG(p.euler_forest().serialize() == f.euler_forest().serialize(),
+                          "HKS treaps diverge at " << where(n, mix, 4000 + seed, i));
+            }
+        }
+    }
+}
+
+// HDT P0 and F2 must build identical treaps at every level after every op.
+void run_hdt_identity(int n, int seeds) {
+    for (const Mix& mix : kMixes) {
+        for (int seed = 1; seed <= seeds; ++seed) {
+            Workload w = generate_churn_workload(make_config(n, mix, 5000 + seed, 800));
+            EttSet<HdtP0, HdtF2> set(n);
+            for (size_t i = 0; i < w.ops.size(); ++i) {
+                if (w.ops[i].type == OpType::QUERY) continue;
+                set.apply(w.ops[i]);
+                auto& [p, f] = set.impls;
+                CHECK_MSG(p.serialize() == f.serialize(), "HDT levels diverge at " << where(n, mix, 5000 + seed, i));
+            }
+        }
+    }
+}
+
+TEST_CASE("hdt_layout_identity") {
+    run_hdt_identity(8, 20);
+    run_hdt_identity(30, 20);
+    run_hdt_identity(200, 5);
+}
+
+TEST_CASE("hks_layout_identity") {
+    run_hks_identity(8, 20);
+    run_hks_identity(30, 20);
+    run_hks_identity(300, 10);  // weights reach floor(log2(300)^2) = 67, so sampling runs
 }
 
 TEST_CASE("dtree_layout_identity") {

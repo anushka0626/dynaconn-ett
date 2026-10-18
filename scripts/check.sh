@@ -25,7 +25,11 @@ for cfg in "${configs[@]}"; do
     cmake -S "$root" -B "$dir" -G Ninja -DCMAKE_CXX_COMPILER="$cxx" \
         -DCMAKE_BUILD_TYPE=RelWithChecks -DDC_SANITIZE="$sanitize" > /dev/null
     cmake --build "$dir" > /dev/null
-    if ! ctest --test-dir "$dir" --output-on-failure -j "$(nproc)"; then
+    # Sanitizer builds look for memory errors, not logic errors, so they run fewer fuzz seeds
+    # (the plain builds run the full 100).
+    seeds=100
+    [ "$sanitize" = ON ] && seeds=25
+    if ! DC_FUZZ_SEEDS=$seeds ctest --test-dir "$dir" --output-on-failure -j "$(nproc)"; then
         failed+=("$cfg")
     fi
 done

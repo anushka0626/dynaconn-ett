@@ -9,6 +9,8 @@
 #include "DNDTree.hpp"
 #include "DTree.hpp"
 #include "DynamicGraphETT.hpp"
+#include "HDT.hpp"
+#include "HKS.hpp"
 #include "TestFramework.hpp"
 #include <memory>
 
@@ -71,10 +73,14 @@ TEST_CASE("memory_counters_return_to_zero") {
     build_and_destroy_returns_to_zero<DTreeP0>();
     build_and_destroy_returns_to_zero<DTreeF2>();
     build_and_destroy_returns_to_zero<DNDTree>();
+    build_and_destroy_returns_to_zero<HksP0>();
+    build_and_destroy_returns_to_zero<HksF2>();
+    build_and_destroy_returns_to_zero<HdtP0>();
+    build_and_destroy_returns_to_zero<HdtF2>();
 }
 
 // Node storage is accounted exactly: pointer nodes are one 40 B allocation each; the arena
-// is one reserved block of 4V * 32 B (no growth while nodes <= 4V).
+// is a single live block of 32 B nodes, at least as large as the node count.
 TEST_CASE("memory_treap_node_bytes_exact") {
     const int n = 500;
     Workload w = insert_only(n, 2000);
@@ -89,7 +95,10 @@ TEST_CASE("memory_treap_node_bytes_exact") {
     {
         FlatDynamicGraphETT f(n);
         for (const auto& op : w.ops) f.insert_edge(op.u, op.v);
-        CHECK(cat(MemCategory::TreapNodes).allocations == 1);
-        CHECK(cat(MemCategory::TreapNodes).requested_bytes == 4 * n * sizeof(ArenaNode));
+        size_t nodes = n + 2 * f.euler_forest().num_tree_edges();
+        const auto& c = cat(MemCategory::TreapNodes);
+        CHECK(c.allocations == 1);
+        CHECK(c.requested_bytes % sizeof(ArenaNode) == 0 && c.requested_bytes >= nodes * sizeof(ArenaNode));
+        CHECK(c.requested_bytes <= 2 * nodes * sizeof(ArenaNode));  // geometric growth: at most 2x
     }
 }

@@ -62,8 +62,8 @@ if(DC_BUILD_TESTS)
     target_compile_definitions(dc_stats_tests PRIVATE DC_STATS)
 
     foreach(name
-            edge_cases_baselines edge_cases_ett_layouts edge_cases_ett_khop edge_cases_dtree edge_cases_dnd
-            invariants_every_op layout_shape_identity dtree_layout_identity
+            edge_cases_baselines edge_cases_ett_layouts edge_cases_ett_khop edge_cases_dtree edge_cases_dnd edge_cases_hks edge_cases_hdt
+            invariants_every_op layout_shape_identity dtree_layout_identity hks_layout_identity hdt_layout_identity
             flat_hash_map_matches_reference ordered_sets_identical_order
             rng_bounded_is_in_range_and_unbiased generator_exact_op_count_and_semantics
             generator_deterministic generator_golden_hash generator_density_control generator_tiny_graphs)
@@ -77,7 +77,7 @@ if(DC_BUILD_TESTS)
     foreach(name memory_counters_return_to_zero memory_treap_node_bytes_exact)
         add_test(NAME ${name} COMMAND dc_memory_tests ${name})
     endforeach()
-    foreach(name stats_counters_consistent stats_identical_across_layouts)
+    foreach(name stats_counters_consistent stats_identical_across_layouts hks_sampling_branch_exercised)
         add_test(NAME ${name} COMMAND dc_stats_tests ${name})
     endforeach()
 endif()

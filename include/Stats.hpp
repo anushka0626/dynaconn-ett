@@ -16,6 +16,9 @@ struct OpStats {
     uint64_t replacement_vertices = 0;     // vertices collected on the small side
     uint64_t replacement_edges_scanned = 0;  // non-tree edges examined by the full search
     uint64_t replacements_found = 0;
+    uint64_t sample_draws = 0;             // HKS: random samples drawn
+    uint64_t sample_hits = 0;              // HKS: replacements found by sampling
+    uint64_t level_raises = 0;             // HDT: edges pushed to a higher level
     uint64_t khop_searches = 0;
     uint64_t khop_hits = 0;
     uint64_t khop_edges_scanned = 0;       // adjacency entries examined by the bounded search

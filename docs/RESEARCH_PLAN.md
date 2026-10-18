@@ -214,15 +214,15 @@ These feed the cost model (RQ4).
 
 **Exit criteria:** every structure and variant passes the Phase 4 fuzz suite, and outputs agree with the reference implementations on shared small inputs.
 
-**Status: in progress (2026-10-17).** 45 ctest cases pass under GCC and Clang, each plain and with ASan+UBSan.
+**Status: ✅ complete (2026-10-17).** 45 ctest cases pass under GCC and Clang, each plain and with ASan+UBSan.
 
 | Item | State |
 |---|---|
 | 5.1 Baselines | ✅ BFS (epoch-stamped visits, flat adjacency), eager and lazy DSU, CachedBFS |
 | 5.2 D-tree | ✅ P0 and F2, with a behavior-identity test. Follows the authors' code where it differs from the paper; the Alg. 2 query is fixed (see `IMPLEMENTATION_NOTES.md`) |
 | 5.2 DND-trees (Xu et al.) | ✅ F2. The DS-root re-sync is shown necessary |
-| 5.2 HKS | ⏳ first read Alberts et al. 1997 for the sampling rule |
-| 5.2 HDT | ⏳ largest item; also check against `tomtseng/dynamic-connectivity-hdt` |
+| 5.2 HKS | ✅ P0 and F2. Spec from SIGMOD 2025's code (Alberts et al. 1997 is not freely accessible). The sampling branch is exercised and oracle-checked |
+| 5.2 HDT | ✅ P0 and F2, with every level checked (including the n/2^i size invariant) and level raises confirmed. The fallback is **not needed**: HDT stays in scope. Cross-check vs. `tomtseng` is still optional |
 | 5.3 ETT P0 → F0 → F1 → F2 | ✅ identical treaps after every op (tested). Shared containers: `FlatHashMap`, `Std/FlatOrderedSets` (canonical swap-remove order) |
 | 5.3 F3 compaction | optional tier |
 | 5.4 k-hop (k = 1, 2, 3) | ✅ `EttF2KHop<k>`. Mutation-tested; one surviving mutant was equivalent and the redundant check was removed |

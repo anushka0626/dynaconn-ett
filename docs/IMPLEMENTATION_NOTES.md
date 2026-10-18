@@ -114,21 +114,46 @@ We read the authors' code to resolve these (`qingchen3/D-tree`, `Dtree/Dtree_uti
 
 ## HKS (simplified Henzinger–King; no levels)
 
-- SIGMOD 2025 cites **Alberts, Cattaneo & Italiano, JEA 1997** (their ref. [11]) for HKS and says only that HKS stores non-tree neighbors "in random search trees" and does not push edges down levels.
-- It is an ET-tree structure like ours. The difference is how the replacement is found: HKS **samples** non-tree edges incident to the smaller tree (Henzinger–King sampling), with a fallback to exhaustive search. Ours scans them deterministically.
-- **Open item before implementing (Phase 5.2):** read Alberts et al. 1997 and Henzinger–King 1999 for the exact sampling rule (sample count, and the fallback when sampling fails). Record it here.
-- **Implementation plan:** build on `EulerTourForest<Storage>`, augmenting each treap node with the count of non-tree edges incident to its subtree, so a uniform random incident non-tree edge can be sampled in O(log n). The sampling RNG uses its own seed, which is reported.
+- **Source of the specification.** SIGMOD 2025 attributes HKS to Alberts, Cattaneo & Italiano (JEA 1997), whose full text is not freely accessible. The HKS that RQ3b replicates is **the one SIGMOD 2025 benchmarked**, so its behavior is specified by their code (`Imp_bench_dyn/HKS/updates.py`), read 2026-10-17. No code was copied.
+- **Structure:** an ET-tree (our `EulerTourForest`). Each treap node is augmented with a **weight**: the number of non-tree edge endpoints at the vertex nodes in its subtree. Each non-tree edge counts at both of its endpoints.
+- **Insert / non-tree delete:** as in our ETT, plus a weight update along the vertex node's root path.
+- **Tree-edge delete** (`replace`):
+  1. Cut. T1 is the side with the smaller **weight**, not the smaller size. Ties go to v's side, with (u, v) normalized u < v.
+  2. Let k = ⌊(log₂ n)²⌋, with n the number of vertices. If weight(T1) ≥ k, **sample k times**: draw an endpoint uniformly from T1's weight, then a uniform non-tree neighbor of that vertex. If the neighbor lies outside T1, promote the edge and stop.
+  3. Otherwise, or if all k samples miss, **enumerate every** non-tree edge incident to T1. BFS over T1's treap nodes (left before right), skipping subtrees of weight 0. Collect the crossing edges and promote the **first**. There is no early exit, which matches the benchmarked cost.
+- **Our differences (layout only):**
+  - Their per-vertex randomized search tree for non-tree neighbors exists only to sample one uniformly. We sample a uniform index into the vertex's canonical ordered set, which gives the same distribution.
+  - Their "first" crossing edge is in Python set order; ours is the canonical order.
+- **Sampling RNG:** its own `SplitMix64` stream (seed reported), separate from treap priorities, so the P0 and F2 variants sample identically.
 
 ## HDT (Holm, de Lichtenberg & Thorup, JACM 2001)
 
-- ⌈log₂ V⌉ levels, one Euler-tour forest per level, with each edge assigned a level.
-- On deleting a tree edge at level ℓ, for ℓ down to 0: push the smaller tree's level-ℓ tree edges to ℓ + 1, then scan its level-ℓ non-tree edges, promoting the first replacement or pushing scanned edges up a level.
-- Augment the treap nodes with flags or counts ("has level-ℓ tree edge", "has level-ℓ non-tree edge") so the scan skips empty subtrees.
-- SIGMOD 2025 attributes HDT's 1335× slowdown on the path graph to this push-down of every node in the smaller path.
-- **Reference:** `tomtseng/dynamic-connectivity-hdt` (MIT), for correctness cross-checks and as an optional unmodified external baseline.
-- **Implementation plan:** a level-indexed array of `EulerTourForest<Storage>` with augmented nodes. This is the largest Phase 5 item, and the plan's fallback drops it first.
+Implemented in `include/HDT.hpp` (2026-10-17) as `HdtP0` and `HdtF2`, from the paper.
 
----
+**Structure:**
+- Levels 0 … ⌊log₂ n⌋. F[i] is an `EulerTourForest` holding the tree edges of level ≥ i, with treap priorities seeded 1337 + i.
+- Each level also has its own set of non-tree edges.
+- Treap nodes carry `LevelAug`:
+  - `weight`: level-i non-tree endpoints at each vertex;
+  - `tree_count`: edge nodes whose tree edge has level exactly i.
+
+  Arena nodes grow to 64 B and pointer nodes to 56 B. That cost is HDT's own, and the same in both layouts.
+
+**Delete of a level-ℓ tree edge:**
+1. Cut it from F[0..ℓ].
+2. For i = ℓ down to 0, take T, the smaller side in F[i] by tour size (tie: the a side, a < b):
+   1. While T has a flagged edge (the leftmost in tour order): unflag it, give it level i + 1, link it in F[i + 1], and flag it there.
+   2. While T has a weighted vertex s (the leftmost): take the first canonical level-i neighbor t of s and remove (s, t) from level i. If t is outside T, (s, t) becomes a level-i tree edge (linked in F[0..i], flagged in F[i]): stop. Otherwise raise (s, t) to level i + 1.
+
+**Checked by `check_invariants()`:** tree edges appear exactly in F[0..ℓ], with the flag only in F[ℓ]. Non-tree edges sit at their level with connected endpoints. Weights equal per-level degrees. **Trees in F[i] have at most ⌊n / 2^i⌋ vertices.**
+
+**Tests:**
+- the differential fuzz, and invariants after every op;
+- a P0/F2 identity test at every level;
+- a stats test confirming that level raises actually happen;
+- planted bugs (skipping the tree-edge push, inverting the replacement test).
+
+**Not done (optional):** cross-checking speed and behavior against `tomtseng/dynamic-connectivity-hdt` (MIT). That gives external validation for the paper; schedule it with Phase 7's pilot.
 
 ## Shared F2 containers (used by every algorithm's F2)
 - **Flat hash map** (open addressing, linear probing, power-of-two capacity, tombstone-free backward-shift deletion), keyed by packed 64-bit edge keys.

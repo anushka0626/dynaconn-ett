@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Complete draft, awaiting author review. Not yet registered.** |
+| Status | **registered** |
 | Draft date | 2026-10-16 |
 | Registration | After review, the author sets Status to *Registered* and commits. That commit's SHA and timestamp are the registration record. It must precede the first measured sweep (Phase 7). |
 | Plan | `docs/RESEARCH_PLAN.md` (revision 3); related work in `docs/RELATED_WORK.md` |
@@ -33,8 +33,11 @@ These results were already known when this document was written. They are **not*
    |---|---|---|---|---|
    | ETT | 153.4 | 148.4 | 129.6 | 115.6 |
    | D-tree | 117.2 | – | – | 87.5 |
+   | HKS | 166.4 | – | – | 116.5 |
+   | HDT | 581.4 | – | – | 470.0 |
 
    Also measured: DND-trees (F2) 94.6; BFS 83.6; eager/lazy DSU 41.3; CachedBFS 84.6.
+   HDT's F2 number uses the uniform arena policy (reserve the V vertex nodes, grow geometrically). An earlier fixed 4V reservation per level made HDT's F2 *larger* than P0 (1,142.7 B/edge); that artifact was fixed before any timing.
    These numbers use Phase 5's containers (swap-remove ordered sets instead of `unordered_set`). Memory is not a hypothesis in this study; it is reported descriptively.
 2. **Correctness:** all structures agree with an independent oracle in the randomized differential tests (V ∈ {2, 8, 30, 200, 2000}, 5 op mixes, 100 seeds each). Pointer and arena ETTs build identical treaps after every operation.
 3. **No runtime or hardware-counter measurements** of any structure have been taken.

@@ -18,6 +18,8 @@
 #include "DNDTree.hpp"
 #include "DTree.hpp"
 #include "DynamicGraphETT.hpp"
+#include "HDT.hpp"
+#include "HKS.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -112,6 +114,10 @@ int main(int argc, char** argv) {
     rows.push_back(measure<DTreeP0>("dtree_p0", n, w));
     rows.push_back(measure<DTreeF2>("dtree_f2", n, w));
     rows.push_back(measure<DNDTree>("dnd_xu", n, w));
+    rows.push_back(measure<HksP0>("hks_p0", n, w));
+    rows.push_back(measure<HksF2>("hks_f2", n, w));
+    rows.push_back(measure<HdtP0>("hdt_p0", n, w));
+    rows.push_back(measure<HdtF2>("hdt_f2", n, w));
 
     if (csv) {
         std::printf("structure,vertices,edges,heap_bytes,bytes_per_edge,allocations,mallinfo_delta");

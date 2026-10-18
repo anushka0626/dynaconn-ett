@@ -4,6 +4,8 @@
 #include "DNDTree.hpp"
 #include "DTree.hpp"
 #include "DynamicGraphETT.hpp"
+#include "HDT.hpp"
+#include "HKS.hpp"
 #include "TestFramework.hpp"
 
 // Hand-written cases, run against every structure.
@@ -173,6 +175,14 @@ TEST_CASE("edge_cases_dtree") {
     run_all<DTreeF2>();
 }
 TEST_CASE("edge_cases_dnd") { run_all<DNDTree>(); }
+TEST_CASE("edge_cases_hdt") {
+    run_all<HdtP0>();
+    run_all<HdtF2>();
+}
+TEST_CASE("edge_cases_hks") {
+    run_all<HksP0>();
+    run_all<HksF2>();
+}
 TEST_CASE("edge_cases_ett_khop") {
     run_all<EttF2KHop<1>>();
     run_all<EttF2KHop<2>>();
