@@ -1,0 +1,186 @@
+% Paper skeleton (IEEE conference format). Upload paper/ to Overleaf, which provides IEEEtran.
+% Every \TBD{...} is a value that comes from the measured experiments (Phase 7-8) and must not be
+% filled in before then. Section structure follows docs/RESEARCH_PLAN.md, Phase 9.
+\documentclass[conference]{IEEEtran}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{cite}
+
+\newcommand{\TBD}[1]{\textcolor{red}{\textbf{[TBD: #1]}}}
+\newcommand{\FIG}[1]{\fbox{\parbox{0.92\columnwidth}{\centering\vspace{1.2cm}\textcolor{gray}{Figure placeholder: #1}\vspace{1.2cm}}}}
+
+\begin{document}
+
+\title{When Does Memory Layout Matter More Than the Algorithm?\\
+A Microarchitecture-Aware Study of Fully Dynamic Graph Connectivity}
+
+\author{\IEEEauthorblockN{Anushka}
+\IEEEauthorblockA{\TBD{affiliation}\\ \TBD{email}}}
+
+\maketitle
+
+\begin{abstract}
+Networks such as satellite constellations, service meshes and routing fabrics gain and lose links continuously, and many control tasks repeatedly ask whether two nodes are still connected. Fully dynamic connectivity structures answer these queries without recomputing from scratch, and recent database-venue studies have compared them by wall-clock time, but only in Python and only by average latency. We present a native C++ study of nine structures (Euler-tour trees with smaller-side replacement search, HKS, HDT, D-tree, Xu et al.'s DND-trees, and four baselines), each in pointer-based and flat-arena memory layouts that are proven to execute identical algorithmic steps. Using a pre-registered design, hardware performance counters, and a versioned benchmark of \TBD{N} hashed traces, we measure \TBD{headline result for RQ2: whether layout changes the algorithm ranking}. We further map the query/update crossover across graph size and query distribution, find that \TBD{crossover result}, and show that \TBD{RQ4 cost-model result}. Code, traces and analysis are released \TBD{DOI}.
+\end{abstract}
+
+\begin{IEEEkeywords}
+dynamic graphs, connectivity, Euler tour trees, memory layout, cache, experimental algorithmics
+\end{IEEEkeywords}
+
+% ------------------------------------------------------------------
+\section{Introduction}
+Dynamic connectivity asks, under edge insertions and deletions, whether two vertices are joined by a path. Recomputing with BFS after each change costs $O(V+E)$; a union-find structure handles insertions in near-constant time but cannot undo a union, so an \emph{incremental-only} DSU must rebuild after deletions. Fully dynamic structures avoid both costs, with polylogarithmic amortized bounds in theory~\cite{henzinger1999,holm2001}.
+
+Which structure is fastest in practice is still open. Chen, B\"ohlen and Helmer~\cite{chen2025} recently compared ten structures and concluded that none is ready for deployment. Their implementations, like those of D-tree~\cite{chen2022dtree}, are written in Python, which hides memory layout, cache behavior and branch behavior entirely; they report averages only, pause updates while querying, include no BFS or DSU baselines, and leave small graphs out of scope.
+
+\textbf{Contributions.}
+\begin{enumerate}
+\item The first native-code, microarchitecture-level comparison of fully dynamic connectivity structures, with hardware counters and top-down stall analysis.
+\item Layout ablations applied \emph{across} algorithms (pointer P0 to flat F2 for ETT, HDT and D-tree), with behavior-identity tests guaranteeing that only layout differs.
+\item A crossover map over interleaved read/write streams, query fraction, query distribution and graph size, including tail latency, simple baselines, and Xu et al.'s DSU hybrid~\cite{xu2024}.
+\item A directional replication of two SIGMOD~2025 findings in optimized C++.
+\item A pre-registered design with paired statistics, and a versioned, hashed trace benchmark answering the call for a standardized workload suite~\cite{chen2025}.
+\end{enumerate}
+
+% ------------------------------------------------------------------
+\section{Background}
+\subsection{Euler-tour trees}
+Each spanning tree is stored as its Euler tour in a balanced sequence structure (here an implicit treap). Every vertex owns one node $\langle v,v\rangle$ and every tree edge two directed nodes; connectivity is a comparison of treap roots. Non-tree edges are kept in per-vertex sets.
+
+\subsection{Replacement search}
+Deleting a tree edge splits a tour; the structure must find a non-tree edge reconnecting the two parts.
+\begin{itemize}
+\item \textbf{ETT (ours):} deterministically scan the non-tree edges of the smaller side. Expected $O(\log n)$ inserts and queries; worst-case delete $O(\sum_{v\in T_s}\deg(v)\cdot\log n)$, \emph{not} polylogarithmic.
+\item \textbf{HKS:} levelless Henzinger--King~\cite{alberts1997}: $\lfloor\log_2^2 n\rfloor$ random samples, then exhaustive search.
+\item \textbf{HDT}~\cite{holm2001}: edge levels with amortized $O(\log^2 n)$ updates.
+\item \textbf{D-tree}~\cite{chen2022dtree} and \textbf{DND-trees}~\cite{xu2024}: unbalanced spanning trees kept shallow by heuristics; DND adds a disjoint-set tree for near-constant queries.
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Related Work}
+\TBD{expand from docs/RELATED\_WORK.md}: empirical studies~\cite{alberts1997,iyer2001,chen2025}; database-venue structures~\cite{chen2022dtree,xu2024}; batch-parallel ETTs~\cite{tseng2019}; survey~\cite{hanauer2022}. We differ from all of them in measuring layout and microarchitecture rather than algorithms alone.
+
+% ------------------------------------------------------------------
+\section{Design}
+\subsection{One algorithm, several layouts}
+Each algorithm is a single C++ template over a storage policy. P0 allocates every node on the heap with 64-bit pointers and uses standard containers; F2 stores nodes in a contiguous arena with 32-bit indices and uses one shared flat hash map and one shared flat set type. All variants draw identical random numbers and iterate sets in one canonical order; tests assert identical internal structure after every operation (Table~\ref{tab:structures}).
+
+\begin{table}[t]
+\caption{Structures and layouts. Memory is measured heap bytes per edge (V\,=\,20{,}000, 80{,}000 edges, insert-only).}
+\label{tab:structures}
+\centering\small
+\begin{tabular}{@{}lccrr@{}}
+\toprule
+Structure & P0 & F2 & B/edge P0 & B/edge F2\\
+\midrule
+ETT (smaller-side) & \checkmark & \checkmark & 153 & 116\\
+HKS & \checkmark & \checkmark & 166 & 117\\
+HDT & \checkmark & \checkmark & 581 & 470\\
+D-tree & \checkmark & \checkmark & 117 & 88\\
+DND-trees (Xu et al.) & -- & \checkmark & -- & 95\\
+BFS / CachedBFS & -- & -- & 84 & 85\\
+DSU eager / lazy & -- & -- & 41 & 41\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Correctness}
+Every structure is checked against an independent oracle by differential fuzzing (5 sizes $\times$ 5 operation mixes $\times$ 100 seeds), structural invariants after every operation, and planted-bug (mutation) tests, under GCC and Clang with AddressSanitizer and UBSan.
+
+\textbf{A note on D-tree.} Reimplementing D-tree, we found that its published query algorithm (Alg.~2), as written and as in the authors' code, can report a connected pair as disconnected when both endpoint walks reroot the same tree. The authors' timings are unaffected (query answers are discarded). We use a corrected query that performs identical work. \TBD{confirm with the authors before submission}
+
+% ------------------------------------------------------------------
+\section{Methodology}
+\subsection{Hypotheses}
+All hypotheses, thresholds and decision rules were registered before any measurement (\TBD{registration commit and date}); amendments are dated and disclosed (Table~\ref{tab:hyp}).
+
+\begin{table}[t]
+\caption{Pre-registered confirmatory tests and outcomes.}
+\label{tab:hyp}
+\centering\scriptsize
+\begin{tabular}{@{}lp{4.1cm}l@{}}
+\toprule
+ID & Hypothesis & Outcome\\
+\midrule
+T1 & H1a: F0 beats P0 ($>$5\%) on large graphs & \TBD{}\\
+T2 & H1b: F0's advantage grows with size & \TBD{}\\
+T3--11 & H2a: P0$\to$F2 gain differs across ETT/HDT/D-tree & \TBD{}\\
+T12 & P1: winner differs, read-heavy vs churn-heavy & \TBD{}\\
+T13 & P3: local queries improve BFS's standing & \TBD{}\\
+T14 & B1: HKS beats HDT on path-graph deletes & \TBD{}\\
+T15 & B2: D-tree beats HKS on random-graph deletes & \TBD{}\\
+T16 & H3c: no dynamic structure $>$5\% faster at V\,=\,$10^3$ & \TBD{}\\
+T17 & H5a: k-hop hit rate higher on RGG than ER & \TBD{}\\
+T18 & H5b: k-hop cuts search work $\geq$20\% on RGG & \TBD{}\\
+H4 & Counter model beats asymptotic model (criterion) & \TBD{}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Workloads}
+Every experiment replays a binary trace with the correct answer to each query stored inside and computed by two independent structures; traces regenerate bit-for-bit under GCC and Clang. Table~\ref{tab:workloads} lists the families.
+
+\begin{table}[t]
+\caption{Workload families (\TBD{final trace count}).}
+\label{tab:workloads}
+\centering\scriptsize
+\begin{tabular}{@{}p{2.2cm}p{5.6cm}@{}}
+\toprule
+Family & Definition\\
+\midrule
+Steady-state churn & Erd\H{o}s--R\'enyi $G(n,m)$, $m=2V$; mixes 80/10/10, 34/33/33, 10/45/45 (query/insert/delete); edge count held constant; uniform, local (2-hop) or cross-component queries; $10^6$ ops\\
+Geometric (RQ5) & random geometric graph on the torus, avg.\ degree 8, vs ER of equal density\\
+$u_r$ (SIGMOD 2025) & insert edges in generator order, delete a random edge every $u_r$ inserts; path graph and $G(n,10n)$, $V=10^5$\\
+Road network & DIMACS USA-road-d.NY (264k vertices, $\approx$365k edges), large diameter\\
+Social & SNAP com-YouTube (1.13M vertices), $u_r$ design\\
+Temporal windows & SNAP CollegeMsg, email-Eu-core, sx-mathoverflow; sliding windows of 1~day / 1~week / 30~days\\
+Satellite (LEO) & Walker-delta 72$\times$22 (1{,}584 satellites), 53$^\circ$, 550~km; cross-plane links switch with latitude\\
+Adversarial & clique joined by one bridge, repeatedly cut and restored\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Machines and measurement}
+Intel Core i5-12500H (hybrid; runs pinned to one P-core, turbo off, \texttt{performance} governor) and \TBD{AMD replication machine}. GCC~16.2, \texttt{-O3 -march=native}. Hardware counters via \texttt{perf\_event\_open}; top-down analysis via \texttt{toplev}; cache counts cross-checked with Cachegrind. 12 trace seeds $\times$ 3 treap seeds per scenario; \TBD{r} repetitions chosen by a pilot study~\cite{kalibera2013}; paired Wilcoxon signed-rank tests with Holm--Bonferroni correction over 18 tests; a 10-minute cap per run, with unfinished runs treated conservatively.
+
+% ------------------------------------------------------------------
+\section{Results}
+\subsection{RQ1: Layout within one algorithm}
+\FIG{ns/op and LLC misses/op vs V for ETT P0, F0, F1, F2, with L2/L3 boundaries}
+\TBD{T1, T2 outcomes; speedups with 95\% CIs}
+
+\subsection{RQ2: Does layout change the ranking?}
+\FIG{Algorithm x layout ranking (ETT, HDT, D-tree; P0 vs F2)}
+\TBD{T3--T11}
+
+\subsection{RQ3: Crossover map}
+\FIG{Fastest structure over query fraction x V, one panel per query distribution}
+\TBD{T12, T13, T16; tail latency CDFs}
+
+\subsection{RQ3b: Replicating SIGMOD 2025}
+\TBD{T14, T15; their Python ratios vs ours}
+
+\subsection{RQ4: Why asymptotics mispredict}
+\FIG{Top-down stall breakdown per structure}
+\TBD{H4: model error and winner accuracy on held-out SNAP/LEO traces}
+
+\subsection{RQ5: Locality of replacement edges}
+\TBD{T17, T18; hit rate vs density and clustering}
+
+% ------------------------------------------------------------------
+\section{Threats to Validity}
+One primary machine (mitigated by \TBD{AMD replication}); one main compiler (tests and traces verified under Clang); glibc malloc; synthetic workloads (mitigated by road, social, temporal and satellite traces); our reimplementations of D-tree and DND-trees (cross-checked against the authors' outputs); query distribution bias (uniform queries on ER graphs are $\approx$96\% connected, hence local and cross-component distributions); measurement bias~\cite{mytkowicz2009} (\TBD{link-order randomization results}).
+
+\section{Conclusion}
+\TBD{after results}
+
+\section*{Acknowledgments}
+\TBD{teammate who provided the AMD machine; advisor}
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

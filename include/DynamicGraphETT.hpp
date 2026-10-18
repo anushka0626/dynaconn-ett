@@ -31,8 +31,9 @@ class DynamicGraphETTImpl : public DynamicConnectivity {
     static_assert(KHop >= 0);
 
 public:
-    explicit DynamicGraphETTImpl(int vertices)
-        : n(vertices), forest(vertices), non_tree_adj(vertices), tree_adj(KHop > 0 ? vertices : 0) {
+    // treap_seed: the priority RNG seed (pre-registration §2.1 varies it per trace seed).
+    explicit DynamicGraphETTImpl(int vertices, uint32_t treap_seed = kDefaultTreapSeed)
+        : n(vertices), forest(vertices, treap_seed), non_tree_adj(vertices), tree_adj(KHop > 0 ? vertices : 0) {
         if constexpr (KHop > 0) visit_stamp.assign(vertices, 0);
     }
 

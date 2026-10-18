@@ -44,6 +44,15 @@ target_link_libraries(benchmark_runner PRIVATE dynconn)
 add_executable(tracegen src/tracegen.cpp)
 target_link_libraries(tracegen PRIVATE dynconn)
 
+# Benchmark harness (Phase 7). bench_stats adds DC_STATS operation counters and is never
+# used for timing.
+foreach(target bench bench_stats)
+    add_executable(${target} src/bench.cpp)
+    target_link_libraries(${target} PRIVATE dynconn)
+    target_compile_definitions(${target} PRIVATE DC_BUILD_TYPE="${CMAKE_BUILD_TYPE}" DC_MARCH="${DC_MARCH}")
+endforeach()
+target_compile_definitions(bench_stats PRIVATE DC_STATS)
+
 # Memory accounting changes container allocator types, so it is enabled per executable.
 add_executable(memory_profile src/memory_profile.cpp)
 target_link_libraries(memory_profile PRIVATE dynconn)
@@ -78,7 +87,7 @@ if(DC_BUILD_TESTS)
             flat_hash_map_matches_reference ordered_sets_identical_order
             sha256_nist_vectors trace_roundtrip_and_validation graph_builders churn_trace_semantics
             local_queries_within_two_hops query_kinds_share_update_stream rgg_churn_uses_potential_edges
-            ur_trace_structure window_and_adversarial_traces trace_golden_hashes leo_trace_semantics dataset_loaders
+            ur_trace_structure window_and_adversarial_traces trace_golden_hashes leo_trace_semantics dataset_loaders latency_histogram_quantiles
             rng_bounded_is_in_range_and_unbiased generator_exact_op_count_and_semantics
             generator_deterministic generator_golden_hash generator_density_control generator_tiny_graphs)
         add_test(NAME ${name} COMMAND dc_tests ${name})

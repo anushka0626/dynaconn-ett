@@ -29,8 +29,9 @@ class HKSImpl : public DynamicConnectivity {
 public:
     static constexpr uint64_t default_sample_seed = 0x5eed'4b5c;
 
-    explicit HKSImpl(int vertices, uint64_t sample_seed = default_sample_seed)
-        : n(vertices), forest(vertices), nte(vertices), rng(sample_seed) {
+    explicit HKSImpl(int vertices, uint32_t treap_seed = kDefaultTreapSeed,
+                     uint64_t sample_seed = default_sample_seed)
+        : n(vertices), forest(vertices, treap_seed), nte(vertices), rng(sample_seed) {
         double lg = vertices > 1 ? std::log2(static_cast<double>(vertices)) : 0.0;
         sample_k = static_cast<int64_t>(lg * lg);
     }

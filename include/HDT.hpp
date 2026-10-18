@@ -40,11 +40,12 @@ class HDTImpl : public DynamicConnectivity {
     };
 
 public:
-    explicit HDTImpl(int vertices) : n(vertices) {
+    // Level i's treap priorities use seed treap_seed + i.
+    explicit HDTImpl(int vertices, uint32_t treap_seed = Forest::default_seed) : n(vertices) {
         int levels = 1;
         while ((int64_t{1} << levels) <= vertices) ++levels;  // floor(log2 n) + 1 levels
         for (int i = 0; i < levels; ++i) {
-            forests.push_back(std::make_unique<Forest>(vertices, Forest::default_seed + static_cast<uint32_t>(i)));
+            forests.push_back(std::make_unique<Forest>(vertices, treap_seed + static_cast<uint32_t>(i)));
             non_tree.push_back(std::make_unique<Adjacency>(vertices));
         }
     }

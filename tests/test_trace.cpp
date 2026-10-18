@@ -1,3 +1,4 @@
+#include "LatencyHistogram.hpp"
 #include "LeoConstellation.hpp"
 #include "Oracle.hpp"
 #include "Sha256.hpp"
@@ -349,4 +350,29 @@ TEST_CASE("dataset_loaders") {
     CHECK(t.n == 3 && t.events.size() == 3);
     CHECK(t.events[0].time == 100 && t.events[1].time == 200 && t.events[2].time == 300);
     fs::remove_all(dir);
+}
+
+TEST_CASE("latency_histogram_quantiles") {
+    dc::LatencyHistogram h;
+    for (uint64_t x = 0; x < 100; ++x) h.add(x);  // exact range
+    CHECK(h.count() == 100 && h.max() == 99);
+    CHECK(h.quantile(0.5) >= 49 && h.quantile(0.5) <= 50.5);
+    // Wide range: every quantile within 1/64 relative error of the exact order statistic.
+    dc::LatencyHistogram w;
+    std::vector<uint64_t> xs;
+    SplitMix64 g(12);
+    for (int i = 0; i < 100000; ++i) {
+        uint64_t x = 1 + (g.next() >> (g.below(50) + 10));
+        xs.push_back(x);
+        w.add(x);
+    }
+    std::sort(xs.begin(), xs.end());
+    for (double q : {0.5, 0.9, 0.99, 0.999}) {
+        double exact = static_cast<double>(xs[static_cast<size_t>(q * xs.size()) - 1]);
+        double got = w.quantile(q);
+        CHECK_MSG(std::fabs(got - exact) <= exact / 64.0 + 1.0, "q=" << q << " exact=" << exact << " got=" << got);
+    }
+    CHECK(w.quantile(1.0) == static_cast<double>(xs.back()));
+    for (uint64_t x : {uint64_t{127}, uint64_t{128}, uint64_t{1000}, uint64_t{123456789}})
+        CHECK(dc::LatencyHistogram::lower_bound(dc::LatencyHistogram::bucket_of(x)) <= x);
 }

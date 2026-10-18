@@ -28,13 +28,15 @@
 //               Supports uniform sampling by weight and finding weighted vertices.
 //   tree_count  (LevelAug): edge nodes can be flagged (HDT: "this tree edge has level i");
 //               nodes hold subtree counts, for finding flagged edges.
+inline constexpr uint32_t kDefaultTreapSeed = 1337;
+
 template <class Storage, template <class> class EdgeMapT = dc::StdEdgeMap>
 class EulerTourForest {
 public:
     using Handle = typename Storage::Handle;
     using Node = typename Storage::Node;
     static constexpr Handle nil = Storage::nil;
-    static constexpr uint32_t default_seed = 1337;
+    static constexpr uint32_t default_seed = kDefaultTreapSeed;
     static constexpr bool kWeighted = requires(Node& x) { x.weight; };
     static constexpr bool kFlagged = requires(Node& x) { x.tree_count; };
 

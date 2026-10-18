@@ -340,6 +340,12 @@ Correctness is a precondition (the differential tests must pass), not an outcome
 - **Reason:** replication fidelity. B1 concerns the path graph, where insertion order shapes every structure's trees. §3 RQ3b already says the ER density "follows their generator … recorded as an amendment".
 - **Data seen:** none.
 
+### A4 (2026-10-18): Disclosure: a harness smoke test used a confirmatory trace
+- **What happened:** while testing the new `bench` harness, one repetition each of `ett_p0`, `ett_f2`, `dtree_f2`, `hdt_f2` and `bfs` was run on `rq1_er_d4_bal_uni_v1000_s01`. That is a confirmatory trace (the RQ1 small cell and the RQ3c cell, seed 1).
+- **The author saw** single-run throughput (ns/op) and counters for those five structures on that trace. Seen: `ett_p0` ≈ 877, `ett_f2` ≈ 744, `dtree_f2` ≈ 265, `hdt_f2` ≈ 1,887, `bfs` ≈ 3,922 ns/op, plus `ett_f2` latency percentiles.
+- **Consequences:** none for the analysis. All hypotheses, thresholds and decision rules were registered earlier and are unchanged. These rows are discarded, and confirmatory results come only from fresh runs of the registered plan. The rep count will be set from pilot data only (§2.5).
+- **Procedure from now on:** development and smoke tests use only pilot traces (seeds 9001–9003) or synthetic traces outside the manifest.
+
 ### A3 (2026-10-18): Clarifications to the query definitions (§2.9; no change in meaning)
 - **Local (h = 2):** u is drawn by rejection among vertices with degree ≥ 1, up to 64 draws; then the query becomes a uniform fallback, which is counted.
 - **Cross-component:** v is drawn by rejection (uniform among vertices outside u's component) with at most 4,096 draws per u, and u is redrawn up to 64 times; then a uniform fallback, counted.
